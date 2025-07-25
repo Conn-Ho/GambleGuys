@@ -1,0 +1,15 @@
+data
+*.csv
+
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+
+.env       # 环境变量文件（含敏感信息）
+*.log      # 日志文件
+/dist/     # 打包生成的目录
+
+camel/Lib/site-packages/
+camel/Scripts/

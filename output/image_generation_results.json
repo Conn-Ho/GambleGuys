@@ -1,0 +1,42 @@
+{
+  "dreamcore_pixel_results": [
+    {
+      "scenario": "神秘森林",
+      "success": false,
+      "error": "API 请求失败: 429 Client Error: Too Many Requests for url: https://api.siliconflow.cn/v1/images/generations"
+    },
+    {
+      "scenario": "未来城市",
+      "success": false,
+      "error": "API 请求失败: 429 Client Error: Too Many Requests for url: https://api.siliconflow.cn/v1/images/generations"
+    },
+    {
+      "scenario": "梦幻海岛",
+      "success": false,
+      "error": "API 请求失败: 429 Client Error: Too Many Requests for url: https://api.siliconflow.cn/v1/images/generations"
+    }
+  ],
+  "custom_style_results": [
+    {
+      "style": "watercolor",
+      "success": false,
+      "error": "API 请求失败: 429 Client Error: Too Many Requests for url: https://api.siliconflow.cn/v1/images/generations"
+    },
+    {
+      "style": "oil_painting",
+      "success": false,
+      "error": "API 请求失败: 429 Client Error: Too Many Requests for url: https://api.siliconflow.cn/v1/images/generations"
+    },
+    {
+      "style": "anime",
+      "success": false,
+      "error": "API 请求失败: 429 Client Error: Too Many Requests for url: https://api.siliconflow.cn/v1/images/generations"
+    },
+    {
+      "style": "cyberpunk",
+      "success": false,
+      "error": "API 请求失败: 429 Client Error: Too Many Requests for url: https://api.siliconflow.cn/v1/images/generations"
+    }
+  ],
+  "timestamp": "1753426031.4736774"
+}
