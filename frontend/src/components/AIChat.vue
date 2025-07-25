@@ -1,37 +1,91 @@
 <template>
   <div class="ai-chat">
-    <div class="messages">
+    <div class="messages" ref="messagesContainer">
       <div v-for="(msg, idx) in messages" :key="idx" :class="msg.role">
         <template v-if="msg.role === 'ai'">
           <span></span>{{ msg.text }}
         </template>
-        <template v-else>
-          <span>我：</span>{{ msg.text }}
-        </template>
+        <template v-else> <span>我：</span>{{ msg.text }} </template>
       </div>
+      <div v-if="loading" class="loading">正在思考...</div>
     </div>
     <div class="input-row">
-      <input v-model="input" @keyup.enter="send" placeholder="输入你的问题..." />
-      <button @click="send">发送</button>
+      <input
+        v-model="input"
+        @keyup.enter="send"
+        placeholder="输入你的问题..."
+        :disabled="loading"
+      />
+      <button @click="send" :disabled="loading">发送</button>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
-const input = ref('')
+import { ref, nextTick, onMounted } from "vue";
+
+const input = ref("");
+const loading = ref(false);
+const messagesContainer = ref(null);
 const messages = ref([
-  { role: 'ai', text: '你好，我是AI，有什么可以帮你？' }
-])
-function send() {
-  if (!input.value.trim()) return
-  messages.value.push({ role: 'user', text: input.value })
-  // 这里模拟AI回复，实际可接API
-  setTimeout(() => {
-    messages.value.push({ role: 'ai', text: 'AI回复：' + input.value })
-  }, 500)
-  input.value = ''
+  {
+    role: "ai",
+    text: "你好，我是AI故事助手，可以为你创作故事和生成配图。请告诉我你想要什么样的故事？",
+  },
+]);
+
+// 滚动到底部
+const scrollToBottom = async () => {
+  await nextTick();
+  if (messagesContainer.value) {
+    messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
+  }
+};
+
+async function send() {
+  if (!input.value.trim() || loading.value) return;
+
+  const userMessage = input.value;
+  messages.value.push({ role: "user", text: userMessage });
+  input.value = "";
+  loading.value = true;
+
+  try {
+    const response = await fetch("http://localhost:5000/api/chat", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        message: userMessage,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (data.status === "success") {
+      messages.value.push({ role: "ai", text: data.reply });
+    } else {
+      messages.value.push({
+        role: "ai",
+        text: "抱歉，出现了一些问题：" + (data.error || "未知错误"),
+      });
+    }
+  } catch (error) {
+    messages.value.push({
+      role: "ai",
+      text: "抱歉，连接服务器失败，请检查后端服务是否正常运行。",
+    });
+    console.error("Error:", error);
+  } finally {
+    loading.value = false;
+    await scrollToBottom();
+  }
 }
+
+onMounted(() => {
+  scrollToBottom();
+});
 </script>
 
 <style scoped>
@@ -40,8 +94,9 @@ function send() {
   right: 32px;
   bottom: 32px;
   width: 360px;
+  height: 600px;
   max-height: 70vh;
-  background: rgba(30,30,30,0.8);
+  background: rgba(30, 30, 30, 0.8);
   border-radius: 18px;
   display: flex;
   flex-direction: column;
@@ -57,7 +112,8 @@ function send() {
   flex-direction: column;
   gap: 8px;
 }
-.user, .ai {
+.user,
+.ai {
   max-width: 80%;
   padding: 10px 16px;
   border-radius: 18px;
@@ -68,6 +124,7 @@ function send() {
   align-self: flex-end;
   color: #fff;
   text-align: right;
+  background: #2563eb;
 }
 
 .ai {
@@ -96,6 +153,10 @@ input {
   color: #fff;
   font-size: 16px;
 }
+input:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
 button {
   background: linear-gradient(90deg, #4e8cff, #2563eb);
   color: #fff;
@@ -106,8 +167,12 @@ button {
   cursor: pointer;
   transition: background 0.2s;
 }
-button:hover {
+button:hover:not(:disabled) {
   background: linear-gradient(90deg, #2563eb, #4e8cff);
+}
+button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
 }
 .messages::-webkit-scrollbar {
   width: 6px;
@@ -116,4 +181,10 @@ button:hover {
   background: #444a;
   border-radius: 3px;
 }
-</style> 
+.loading {
+  align-self: center;
+  color: #666;
+  margin: 10px 0;
+  font-style: italic;
+}
+</style>
