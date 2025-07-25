@@ -48,8 +48,6 @@ metric_labels = ["Attention", "Engagement", "Excitement", "Interest", "Relaxatio
 
 print("Now pulling samples...")
 
-# 1. 归一化函数、范围和权重定义
-# -------------------------------------------------------------------------
 
 METRIC_RANGES = {
     'Attention': (0, 100),
@@ -75,8 +73,6 @@ def normalize_to_neg_one_to_one(value, min_val, max_val):
     if max_val == min_val: return 0
     return 2 * ((value - min_val) / (max_val - min_val)) - 1
 
-# 2. Valence/Arousal 计算函数
-# -------------------------------------------------------------------------
 
 def calculate_emotion_scores(metrics, weights):
     arousal = (weights['arousal']['Excitement'] * metrics['Excitement'] +
@@ -94,8 +90,6 @@ def calculate_emotion_scores(metrics, weights):
     
     return max(-1, min(1, valence)), max(-1, min(1, arousal))
 
-# 3. 精确情绪判断函数
-# -------------------------------------------------------------------------
 
 def get_precise_emotion(valence, arousal, neutral_threshold=0.1):
     intensity_raw = math.sqrt(valence**2 + arousal**2)
@@ -117,8 +111,6 @@ def get_precise_emotion(valence, arousal, neutral_threshold=0.1):
     else: emotion_label = "平静 (Pleased)"
     return emotion_label, intensity_normalized
 
-# 4. 主分析流程封装
-# -------------------------------------------------------------------------
 
 def analyze_emotion_from_sample(sample_list):
     """
@@ -141,6 +133,7 @@ def analyze_emotion_from_sample(sample_list):
     
     return emotion, intensity
 
+
 try:
     while True:
         sample, timestamp = inlet.pull_sample()
@@ -151,10 +144,8 @@ try:
                 for name, value in zip(metric_labels, sample):
                     output.append(f"{name}: {value:.2f}")
                 print(", ".join(output))
-                # 调用在文件末尾定义的函数来处理数据
                 emotion, intensity = analyze_emotion_from_sample(sample)
-                # 打印情绪分析结果
-                print(f"--> 情绪分析: {emotion}, 强度: {intensity:.2f} / 100\n")
+                print(f"--> 情绪: {emotion}, 强度: {intensity:.2f} / 100\n")
             else:
                 print(sample)
 except KeyboardInterrupt:
