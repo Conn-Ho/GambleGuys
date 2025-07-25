@@ -60,12 +60,12 @@ METRIC_RANGES = {
 
 WEIGHTS = {
     'arousal': {
-        'Excitement': 0.5, 'Stress': 0.2, 'Interest': 0.1, 
-        'Engagement': 0.1, 'Attention': 0.1, 'Relaxation': -0.3
+        'Excitement': 0.4, 'Stress': 0.3, 'Interest': 0.15, 
+        'Engagement': 0.1, 'Attention': 0.05, 'Relaxation': -0.4
     },
     'valence': {
-        'Relaxation': 0.4, 'Interest': 0.3, 'Engagement': 0.2, 
-        'Attention': 0.1, 'Stress': -0.6
+        'Relaxation': 0.35, 'Interest': 0.25, 'Engagement': 0.2, 
+        'Attention': 0.1, 'Stress': -0.5, 'Excitement': 0.1
     }
 }
 
@@ -74,18 +74,21 @@ def normalize_to_neg_one_to_one(value, min_val, max_val):
     return 2 * ((value - min_val) / (max_val - min_val)) - 1
 
 
-def calculate_emotion_scores(metrics, weights):
+def calculate_emotion_scores(metrics, weights, attention_default=0.0):
+    # 为Attention添加默认值，如果Attention值过低则使用默认值
+    attention_value = metrics['Attention'] if metrics['Attention'] > 10 else attention_default
+    
     arousal = (weights['arousal']['Excitement'] * metrics['Excitement'] +
                weights['arousal']['Stress']     * metrics['Stress'] +
                weights['arousal']['Interest']   * metrics['Interest'] +
                weights['arousal']['Engagement'] * metrics['Engagement'] +
-               weights['arousal']['Attention']  * metrics['Attention'] +
+               weights['arousal']['Attention']  * attention_value +
                weights['arousal']['Relaxation'] * metrics['Relaxation'])
 
     valence = (weights['valence']['Relaxation'] * metrics['Relaxation'] +
                weights['valence']['Interest']   * metrics['Interest'] +
                weights['valence']['Engagement'] * metrics['Engagement'] +
-               weights['valence']['Attention']  * metrics['Attention'] +
+               weights['valence']['Attention']  * attention_value +
                weights['valence']['Stress']     * metrics['Stress'])
     
     return max(-1, min(1, valence)), max(-1, min(1, arousal))
