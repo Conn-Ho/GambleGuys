@@ -165,8 +165,8 @@ class Subcribe():
 def main():
     # !!!重要!!!
     # 请在下方填入你的 Emotiv App Client ID 和 Client Secret
-    your_app_client_id = '你的Client ID'
-    your_app_client_secret = '你的Client Secret'
+    your_app_client_id = '6OV53rWuPZiJo6419CHi4ppabSdqKpTgfYCU5mvV'
+    your_app_client_secret = 'XMWhqlpRTnQfe8a0b363jYFD976u7Ar17mQw2IWJT6eS2Z5LllaMckJbfbrSEqJYZ2LBpru6cvusWDapvjPSPutglsUwgNXYUzzcLKZqIhYOV52Rcy0YilZDJwoaQWnE'
 
     if your_app_client_id == '你的Client ID' or your_app_client_secret == '你的Client Secret':
         print("错误：请在代码中填入你的 Emotiv App Client ID 和 Client Secret！")
