@@ -1,4 +1,4 @@
-camel-ai[all]==0.2.16
+camel-ai[all]
 python-dotenv>=1.0.0
 Pillow>=10.0.0
 volcengine-python-sdk[ark]>=1.0.0 
