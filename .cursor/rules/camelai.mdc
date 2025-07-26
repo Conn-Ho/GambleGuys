@@ -1,0 +1,52 @@
+---
+alwaysApply: true
+---
+
+遵守 python 代码规范和 Camel AI 官网的 api 书写规范,是用 AzureOpenAI，保持代码最简洁.
+核心原则
+职责分离
+
+将 prompts、toolkits、agents、workflows、配置分别放在不同模块，保证可维护性与可测试性。
+
+配置优先
+
+所有可调参数（API Key、模型引擎、temperature、token limit、重试策略等）通过环境变量或 config/\*.yaml 管理，避免硬编码。
+
+易读可维护
+
+遵循 PEP 8，使用 snake_case 和一致的模块分隔；关键位置务必添加 docstring。
+
+可扩展插件化
+
+基于官方的 Toolkit 机制或自定义插件架构，实现工具的动态加载与替换。
+
+全链路可追踪
+
+为每次交互和工具调用打上唯一 ID，使用结构化日志记录输入、输出与元数据，便于调试和审计
+
+工具（Toolkits）系统
+Toolkit 概念：一组功能相关的工具集合，如 Web 搜索、文档处理、代码执行等。
+
+内置模块：
+
+camel.toolkits.SearchToolkit （网络搜索）
+
+camel.toolkits.DocumentToolkit（文档解析／RAG）
+
+camel.toolkits.CommunicationToolkit（消息推送）…
+CAMEL-AI 文档
+
+自定义工具：继承官方 Toolkit 类或封装函数，确保输入输出使用 Pydantic/@dataclass 定义 schema。
+
+5. Prompt、Memory 与存储
+   Prompt 模板：使用官方 camel.prompts 模块，或 Jinja2 管理静态模板与动态占位符。
+
+Memory 持久化：利用 camel.memory 模块实现会话或任务状态存储，支持内存、Redis、文件存储等后端。
+
+Loaders 与 Storages：使用 camel.loaders 中的 JinaURLReader、MarkItDownLoader 等提取与转换外部内容。
+
+1. 错误处理与验证
+   异常捕获：统一捕获官方异常 camel.errors.CamelError、HTTPError 等：
+   输入／输出校验：对工具函数与 Agent 返回使用 Pydantic 模型或自定义 validator 验证，防止下游崩溃。
+
+重试与退避：建议使用 tenacity 实现指数退避重试，配置最大重试次数与超时策略。只需要最简单的错误调试，保持代码简洁，甚至可以不需要代码调试。
