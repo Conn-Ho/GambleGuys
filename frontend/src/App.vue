@@ -4,16 +4,21 @@ import IntroAnimation from './components/IntroAnimation.vue'
 import MemoryGuide from './components/MemoryGuide.vue'
 import TheWelcome from './components/TheWelcome.vue'
 
-const currentStep = ref('intro') // 'intro', 'memory', 'game'
+const currentStep = ref('intro') // 从intro动画开始
+
+// 添加调试日志
+console.log("🎮 当前步骤:", currentStep.value);
 
 // 处理intro动画完成事件
 const handleIntroCompleted = () => {
+  console.log("🎬 Intro动画完成，切换到记忆引导");
   currentStep.value = 'memory'
 }
 
 // 处理记忆引导完成事件
 const handleMemoryGuideCompleted = (memorySettings) => {
-  console.log('用户记忆设置:', memorySettings)
+  console.log('🧠 用户记忆设置:', memorySettings)
+  console.log("🎮 切换到主游戏界面");
   currentStep.value = 'game'
 }
 </script>

@@ -15,13 +15,25 @@ const backgroundImage = ref(defaultBg);
 
 // 处理背景更新事件
 const handleBackgroundUpdate = (imageUrl) => {
-  console.log("收到背景更新事件:", imageUrl);
+  console.log("🎯 收到背景更新事件:", imageUrl);
+  console.log("🎯 图片URL类型:", typeof imageUrl);
+  console.log("🎯 图片URL长度:", imageUrl ? imageUrl.length : 0);
+  
   if (imageUrl) {
-    backgroundImage.value = imageUrl;
-    console.log("背景图片已更新:", imageUrl);
-    console.log("当前背景URL:", backgroundImage.value);
+    // 测试图片是否可以加载
+    const img = new Image();
+    img.onload = () => {
+      console.log("✅ 图片加载成功，开始更新背景");
+      backgroundImage.value = imageUrl;
+      console.log("🎨 背景图片已更新为:", backgroundImage.value);
+    };
+    img.onerror = (error) => {
+      console.error("❌ 图片加载失败:", error);
+      console.error("❌ 失败的图片URL:", imageUrl);
+    };
+    img.src = imageUrl;
   } else {
-    console.log("警告: 收到空的图片URL");
+    console.log("⚠️ 警告: 收到空的图片URL");
   }
 };
 </script>

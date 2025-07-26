@@ -11,13 +11,12 @@
           <div class="memory-input-area">
             <!-- AI输出框 -->
             <div v-if="aiResponse" class="ai-output-box">
-              <div class="output-header">AI回复</div>
               <div class="output-content">{{ aiResponse }}</div>
             </div>
             
             <!-- 加载状态显示在输出框位置 -->
             <div v-if="loading && !aiResponse" class="ai-output-box loading-box">
-            
+              <Loading :inline="true" :text="''" />
             </div>
             
             <div class="input-container">
@@ -53,6 +52,7 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue';
+import Loading from './Loading.vue';
 
 // 定义emits
 const emit = defineEmits(['completed']);
@@ -143,7 +143,8 @@ const startGame = () => {
     userMemory: memoryInput.value,
     aiResponse: aiResponse.value
   };
-  console.log('Memory data:', memoryData);
+  console.log('🧠 Memory data:', memoryData);
+  console.log('🎮 准备进入主游戏界面（带背景更新功能）');
   emit('completed', memoryData);
 };
 </script>
