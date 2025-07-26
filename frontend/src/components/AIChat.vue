@@ -27,6 +27,30 @@
       </div>
     </div>
 
+    <!-- EEG情绪状态显示 -->
+    <!-- <div class="emotion-status" v-if="emotionListening || latestEmotionData">
+      <div class="emotion-indicator" :class="{ active: emotionListening }">
+        <div class="emotion-icon">🧠</div>
+        <div class="emotion-info">
+          <div class="emotion-state">
+            {{ emotionListening ? "EEG监听中" : "EEG已停止" }}
+          </div>
+          <div class="emotion-data" v-if="latestEmotionData">
+            <span class="current-emotion">{{ latestEmotionData.emotion }}</span>
+            <span class="emotion-intensity">{{ (latestEmotionData.intensity * 100).toFixed(0) }}%</span>
+          </div>
+          <div class="emotion-history" v-if="emotionHistory.length > 0">
+            <span class="history-label">历史: </span>
+            <span class="history-count">{{ emotionHistory.length }}/{{ maxHistoryLength }}</span>
+          </div>
+          <div class="emotion-mapping" v-if="latestEmotionData">
+            <span class="mapping-label">光圈: </span>
+            <span class="mapping-status active">已映射</span>
+          </div>
+        </div>
+      </div>
+    </div> -->
+
     <!-- 对话历史显示区域 -->
     <div class="chat-history" v-if="showChatHistory">
       <div class="chat-messages">
@@ -46,37 +70,28 @@
 
     <!-- AI回复对话框 (只显示最新的一个，透明样式，位置在输入框上方，居中) -->
     <div
-      v-if="latestAiMessage && !showChatHistory"
+      v-if="(latestAiMessage || loading) && !showChatHistory"
       class="ai-dialog-wrapper"
       style="position: fixed; bottom: 140px; left: 50%; transform: translateX(-50%); display: flex; justify-content: center; pointer-events: none; z-index: 10;"
     >
       <div class="ai-dialog" style="pointer-events: auto;">
         <div class="ai-dialog-content">
-          <p class="ai-response">{{ latestAiMessage.text }}</p>
+          <p class="ai-response" v-if="!loading">{{ latestAiMessage.text }}</p>
+          <p class="ai-response loading-dots" v-if="loading">
+            <span class="dot">.</span>
+            <span class="dot">.</span>
+            <span class="dot">.</span>
+          </p>
         </div>
       </div>
     </div>
 
     <!-- 加载状态 -->
-    <div v-if="loading" class="loading-wrapper">
+    <!-- <div v-if="loading" class="loading-wrapper">
       <Loading :inline="true" text="正在思考..." />
-    </div>
-
-  
-
-  
-
-    <!-- 聊天切换按钮 -->
-    <!-- <div class="chat-controls">
-      <button 
-        @click="toggleChatHistory" 
-        class="chat-toggle-btn"
-        :class="{ active: showChatHistory }"
-      >
-        {{ showChatHistory ? "隐藏对话" : "查看对话" }}
-      </button>
     </div> -->
 
+  
     <!-- 简单输入框 -->
     <div class="simple-input-container">
       <div class="input-wrapper">
@@ -100,7 +115,7 @@
 </template>
 
 <script setup>
-import { ref, nextTick, onMounted, computed, watch } from "vue";
+import { ref, nextTick, onMounted, computed, watch, onUnmounted } from "vue";
 import Loading from './Loading.vue';
 
 // 定义发射事件
@@ -111,6 +126,479 @@ const loading = ref(false);
 const showChatHistory = ref(false);
 const showAuraPanel = ref(false);
 const currentThemeIndex = ref(0);
+
+// EEG情绪监听相关
+const emotionListening = ref(false);
+const latestEmotionData = ref(null);
+const emotionWebSocket = ref(null);
+const showEmotionTest = ref(false);
+
+// 情绪历史跟踪（用于平滑过渡）
+const emotionHistory = ref([]);
+const maxHistoryLength = 5; // 保留最近5次情绪数据
+
+// 情绪到光圈效果的映射配置
+const emotionAuraMapping = {
+  // 积极情绪组
+  "Happy (开心)": {
+    colors: [
+      'rgba(255, 215, 0, 0.4)',    // 金黄
+      'rgba(255, 165, 0, 0.35)',   // 橙色
+      'rgba(255, 140, 0, 0.4)',    // 深橙
+      'rgba(255, 193, 7, 0.35)',   // 琥珀色
+      'rgba(255, 235, 59, 0.3)'    // 亮黄
+    ],
+    baseIntensity: 0.7,
+    baseSpeed: 6,
+    baseBlur: 70,
+    sizeRange: { min: 250, max: 450 }
+  },
+  
+  "Excited (激动)": {
+    colors: [
+      'rgba(255, 87, 34, 0.5)',    // 橙红
+      'rgba(244, 67, 54, 0.45)',   // 红色
+      'rgba(255, 152, 0, 0.4)',    // 橙色
+      'rgba(255, 193, 7, 0.35)',   // 琥珀
+      'rgba(255, 235, 59, 0.4)'    // 黄色
+    ],
+    baseIntensity: 0.9,
+    baseSpeed: 3,
+    baseBlur: 90,
+    sizeRange: { min: 300, max: 600 }
+  },
+  
+  "Surprised (惊喜)": {
+    colors: [
+      'rgba(156, 39, 176, 0.4)',   // 紫色
+      'rgba(103, 58, 183, 0.35)',  // 深紫
+      'rgba(63, 81, 181, 0.4)',    // 靛蓝
+      'rgba(33, 150, 243, 0.35)',  // 蓝色
+      'rgba(0, 188, 212, 0.3)'     // 青色
+    ],
+    baseIntensity: 0.8,
+    baseSpeed: 2,
+    baseBlur: 100,
+    sizeRange: { min: 200, max: 500 }
+  },
+  
+  "Relaxed (放松)": {
+    colors: [
+      'rgba(76, 175, 80, 0.3)',    // 绿色
+      'rgba(139, 195, 74, 0.25)',  // 浅绿
+      'rgba(156, 204, 101, 0.3)',  // 淡绿
+      'rgba(174, 213, 129, 0.25)', // 更淡绿
+      'rgba(200, 230, 201, 0.2)'   // 极淡绿
+    ],
+    baseIntensity: 0.4,
+    baseSpeed: 12,
+    baseBlur: 50,
+    sizeRange: { min: 180, max: 280 }
+  },
+  
+  "Pleased (平静)": {
+    colors: [
+      'rgba(96, 125, 139, 0.3)',   // 蓝灰
+      'rgba(120, 144, 156, 0.25)', // 浅蓝灰
+      'rgba(144, 164, 174, 0.3)',  // 更浅蓝灰
+      'rgba(176, 190, 197, 0.25)', // 淡蓝灰
+      'rgba(207, 216, 220, 0.2)'   // 极淡蓝灰
+    ],
+    baseIntensity: 0.35,
+    baseSpeed: 10,
+    baseBlur: 60,
+    sizeRange: { min: 200, max: 350 }
+  },
+  
+  // 消极情绪组
+  "Sad (悲伤)": {
+    colors: [
+      'rgba(63, 81, 181, 0.35)',   // 深蓝
+      'rgba(48, 63, 159, 0.3)',    // 更深蓝
+      'rgba(40, 53, 147, 0.35)',   // 极深蓝
+      'rgba(26, 35, 126, 0.3)',    // 靛蓝
+      'rgba(13, 18, 87, 0.25)'     // 深靛蓝
+    ],
+    baseIntensity: 0.4,
+    baseSpeed: 15,
+    baseBlur: 80,
+    sizeRange: { min: 150, max: 300 }
+  },
+  
+  "Angry (愤怒)": {
+    colors: [
+      'rgba(244, 67, 54, 0.6)',    // 红色
+      'rgba(229, 57, 53, 0.55)',   // 深红
+      'rgba(211, 47, 47, 0.5)',    // 更深红
+      'rgba(198, 40, 40, 0.45)',   // 暗红
+      'rgba(183, 28, 28, 0.4)'     // 极深红
+    ],
+    baseIntensity: 1.0,
+    baseSpeed: 2,
+    baseBlur: 120,
+    sizeRange: { min: 350, max: 700 }
+  },
+  
+  "Fear (恐惧)": {
+    colors: [
+      'rgba(69, 39, 160, 0.4)',    // 深紫
+      'rgba(49, 27, 146, 0.35)',   // 更深紫
+      'rgba(26, 13, 132, 0.4)',    // 极深紫
+      'rgba(17, 8, 89, 0.35)',     // 黑紫
+      'rgba(8, 3, 45, 0.3)'        // 极黑紫
+    ],
+    baseIntensity: 0.7,
+    baseSpeed: 4,
+    baseBlur: 150,
+    sizeRange: { min: 200, max: 400 }
+  },
+  
+  "Depressed (沮丧)": {
+    colors: [
+      'rgba(55, 71, 79, 0.3)',     // 深灰蓝
+      'rgba(38, 50, 56, 0.25)',    // 更深灰蓝
+      'rgba(33, 43, 49, 0.3)',     // 极深灰
+      'rgba(23, 31, 35, 0.25)',    // 黑灰
+      'rgba(13, 18, 20, 0.2)'      // 极黑
+    ],
+    baseIntensity: 0.25,
+    baseSpeed: 20,
+    baseBlur: 40,
+    sizeRange: { min: 100, max: 200 }
+  },
+  
+  "Tired (疲倦)": {
+    colors: [
+      'rgba(121, 85, 72, 0.3)',    // 棕色
+      'rgba(93, 64, 55, 0.25)',    // 深棕
+      'rgba(78, 52, 46, 0.3)',     // 更深棕
+      'rgba(62, 39, 35, 0.25)',    // 暗棕
+      'rgba(40, 26, 23, 0.2)'      // 极深棕
+    ],
+    baseIntensity: 0.3,
+    baseSpeed: 18,
+    baseBlur: 45,
+    sizeRange: { min: 120, max: 250 }
+  },
+  
+  "Sleepy (困倦)": {
+    colors: [
+      'rgba(94, 106, 142, 0.25)',  // 紫灰
+      'rgba(81, 91, 122, 0.2)',    // 深紫灰
+      'rgba(69, 77, 102, 0.25)',   // 更深紫灰
+      'rgba(56, 62, 81, 0.2)',     // 暗紫灰
+      'rgba(43, 47, 61, 0.15)'     // 极暗紫灰
+    ],
+    baseIntensity: 0.2,
+    baseSpeed: 25,
+    baseBlur: 35,
+    sizeRange: { min: 100, max: 180 }
+  },
+  
+  // 中性和其他情绪
+  "Neutral (中性)": {
+    colors: [
+      'rgba(138, 43, 226, 0.3)',   // 默认紫色
+      'rgba(75, 0, 130, 0.25)',
+      'rgba(72, 61, 139, 0.3)',
+      'rgba(147, 112, 219, 0.25)',
+      'rgba(123, 104, 238, 0.3)'
+    ],
+    baseIntensity: 0.5,
+    baseSpeed: 8,
+    baseBlur: 80,
+    sizeRange: { min: 200, max: 400 }
+  },
+  
+  "Bored (无聊)": {
+    colors: [
+      'rgba(158, 158, 158, 0.25)', // 灰色
+      'rgba(117, 117, 117, 0.2)',  // 深灰
+      'rgba(97, 97, 97, 0.25)',    // 更深灰
+      'rgba(76, 76, 76, 0.2)',     // 暗灰
+      'rgba(55, 55, 55, 0.15)'     // 极深灰
+    ],
+    baseIntensity: 0.2,
+    baseSpeed: 30,
+    baseBlur: 30,
+    sizeRange: { min: 150, max: 250 }
+  },
+  
+  "Contempt (轻蔑)": {
+    colors: [
+      'rgba(136, 14, 79, 0.4)',    // 深洋红
+      'rgba(106, 11, 61, 0.35)',   // 更深洋红
+      'rgba(74, 8, 43, 0.4)',      // 暗洋红
+      'rgba(56, 6, 32, 0.35)',     // 极深洋红
+      'rgba(38, 4, 21, 0.3)'       // 黑洋红
+    ],
+    baseIntensity: 0.6,
+    baseSpeed: 6,
+    baseBlur: 100,
+    sizeRange: { min: 180, max: 380 }
+  },
+  
+  "Disgust (厌恶)": {
+    colors: [
+      'rgba(129, 119, 23, 0.4)',   // 深黄绿
+      'rgba(100, 92, 18, 0.35)',   // 暗黄绿
+      'rgba(71, 65, 13, 0.4)',     // 更深黄绿
+      'rgba(51, 46, 9, 0.35)',     // 极深黄绿
+      'rgba(31, 28, 5, 0.3)'       // 黑黄绿
+    ],
+    baseIntensity: 0.5,
+    baseSpeed: 5,
+    baseBlur: 110,
+    sizeRange: { min: 160, max: 320 }
+  },
+  
+  "Miserable (痛苦)": {
+    colors: [
+      'rgba(136, 14, 14, 0.5)',    // 深红
+      'rgba(101, 10, 10, 0.45)',   // 暗红
+      'rgba(66, 7, 7, 0.5)',       // 更深红
+      'rgba(46, 5, 5, 0.45)',      // 极深红
+      'rgba(26, 3, 3, 0.4)'        // 黑红
+    ],
+    baseIntensity: 0.8,
+    baseSpeed: 7,
+    baseBlur: 130,
+    sizeRange: { min: 220, max: 480 }
+  }
+};
+
+// 启动情绪监听
+const startEmotionListening = () => {
+  if (emotionListening.value) return;
+  
+  try {
+    // 尝试连接EEG音频服务的WebSocket (如果有的话)
+    // 或者使用HTTP轮询方式
+    emotionListening.value = true;
+    console.log("🧠 开始监听EEG情绪数据...");
+    
+    // 使用HTTP轮询方式获取情绪数据
+    startEmotionPolling();
+    
+  } catch (error) {
+    console.error("❌ 启动情绪监听失败:", error);
+    emotionListening.value = false;
+  }
+};
+
+// HTTP轮询获取情绪数据
+const startEmotionPolling = () => {
+  const pollInterval = 1500; // 1.5秒轮询一次，更频繁的更新
+  
+  const poll = async () => {
+    if (!emotionListening.value) return;
+    
+    try {
+      // 从音频服务获取当前情绪状态
+      const response = await fetch("http://localhost:8080/status");
+      if (response.ok) {
+        const data = await response.json();
+        
+        // 检查是否有prompt_status包含当前情绪
+        if (data.prompt_status && data.prompt_status.current_emotion && data.prompt_status.current_intensity !== undefined) {
+          const emotion = data.prompt_status.current_emotion;
+          const intensity = data.prompt_status.current_intensity;
+          
+          // 检查是否是新的情绪数据（避免重复应用相同的情绪）
+          const isNewEmotion = !latestEmotionData.value || 
+                              latestEmotionData.value.emotion !== emotion ||
+                              Math.abs(latestEmotionData.value.intensity - intensity) > 0.05; // 降低阈值，更敏感
+          
+          // 更新情绪历史
+          if (isNewEmotion) {
+            emotionHistory.value.push({
+              emotion: emotion,
+              intensity: intensity,
+              timestamp: Date.now()
+            });
+            
+            // 保持历史长度限制
+            if (emotionHistory.value.length > maxHistoryLength) {
+              emotionHistory.value.shift();
+            }
+          }
+          
+          // 更新最新情绪数据
+          latestEmotionData.value = {
+            emotion: emotion,
+            intensity: intensity,
+            timestamp: Date.now()
+          };
+          
+          // 只在情绪有显著变化时应用到光圈效果
+          if (isNewEmotion) {
+            console.log(`🧠 检测到新情绪: ${emotion} (强度: ${(intensity * 100).toFixed(1)}%)`);
+            applySmoothedEmotionToAura(emotion, intensity);
+          }
+        }
+      }
+    } catch (error) {
+      // 静默处理连接错误，避免日志垃圾
+      if (emotionListening.value) {
+        console.warn("⚠️ 情绪数据轮询失败:", error.message);
+      }
+    }
+    
+    // 继续轮询
+    if (emotionListening.value) {
+      setTimeout(poll, pollInterval);
+    }
+  };
+  
+  poll();
+};
+
+// 停止情绪监听
+const stopEmotionListening = () => {
+  emotionListening.value = false;
+  if (emotionWebSocket.value) {
+    emotionWebSocket.value.close();
+    emotionWebSocket.value = null;
+  }
+  console.log("🛑 已停止情绪监听");
+};
+
+// 带历史平滑的情绪应用函数
+const applySmoothedEmotionToAura = (emotion, intensity) => {
+  // 如果有历史数据，计算平滑后的强度
+  let smoothedIntensity = intensity;
+  
+  if (emotionHistory.value.length > 1) {
+    // 计算最近几次相同情绪的平均强度
+    const recentSameEmotions = emotionHistory.value.filter(h => h.emotion === emotion);
+    if (recentSameEmotions.length > 1) {
+      const totalIntensity = recentSameEmotions.reduce((sum, h) => sum + h.intensity, 0);
+      const avgIntensity = totalIntensity / recentSameEmotions.length;
+      
+      // 使用加权平均：70%当前值 + 30%历史平均
+      smoothedIntensity = intensity * 0.7 + avgIntensity * 0.3;
+      
+      console.log(`📊 情绪强度平滑: ${emotion} | 原始: ${(intensity * 100).toFixed(1)}% | 平滑: ${(smoothedIntensity * 100).toFixed(1)}%`);
+    }
+  }
+  
+  // 应用平滑后的情绪到光圈
+  applyEmotionToAura(emotion, smoothedIntensity);
+};
+
+// 应用情绪到光圈效果
+const applyEmotionToAura = (emotion, intensity) => {
+  // 获取情绪映射配置，支持模糊匹配
+  let emotionConfig = emotionAuraMapping[emotion];
+  
+  // 如果找不到精确匹配，尝试部分匹配
+  if (!emotionConfig) {
+    const emotionLower = emotion.toLowerCase();
+    const matchingKey = Object.keys(emotionAuraMapping).find(key => 
+      key.toLowerCase().includes(emotionLower) || 
+      emotionLower.includes(key.toLowerCase().split(' ')[0])
+    );
+    emotionConfig = matchingKey ? emotionAuraMapping[matchingKey] : emotionAuraMapping["Neutral (中性)"];
+    
+    if (matchingKey) {
+      console.log(`🎯 情绪模糊匹配: ${emotion} -> ${matchingKey}`);
+    } else {
+      console.log(`⚠️ 未知情绪，使用默认配置: ${emotion}`);
+    }
+  }
+  
+  // 计算强度调节系数 (intensity范围通常是0-1)
+  const intensityFactor = Math.max(0.1, Math.min(1.0, intensity));
+  
+  // 平滑强度调节曲线
+  const smoothIntensity = Math.sin(intensityFactor * Math.PI / 2); // 使用正弦函数平滑过渡
+  
+  // 应用强度调节
+  const adjustedIntensity = emotionConfig.baseIntensity * (0.5 + smoothIntensity * 0.5);
+  const adjustedSpeed = emotionConfig.baseSpeed / Math.max(0.3, intensityFactor); // 强度越高速度越快
+  const adjustedBlur = emotionConfig.baseBlur * (0.6 + smoothIntensity * 0.4); // 强度影响模糊度
+  
+  // 尺寸范围根据强度调整，使用更平滑的缩放
+  const sizeMultiplier = 0.8 + smoothIntensity * 0.4; // 0.8到1.2的范围
+  const adjustedSizeRange = {
+    min: Math.floor(emotionConfig.sizeRange.min * sizeMultiplier),
+    max: Math.floor(emotionConfig.sizeRange.max * sizeMultiplier)
+  };
+  
+  // 添加颜色强度调节
+  const enhancedColors = emotionConfig.colors.map(color => {
+    // 根据强度调节颜色透明度
+    const rgba = color.match(/rgba?\(([^)]+)\)/)[1].split(',');
+    const [r, g, b] = rgba.slice(0, 3).map(c => c.trim());
+    const baseAlpha = parseFloat(rgba[3] || '1');
+    const adjustedAlpha = Math.min(1, baseAlpha * (0.7 + smoothIntensity * 0.6));
+    return `rgba(${r}, ${g}, ${b}, ${adjustedAlpha.toFixed(3)})`;
+  });
+  
+  // 更新光圈配置
+  updateAuraConfig({
+    colors: enhancedColors,
+    intensity: adjustedIntensity,
+    animationSpeed: adjustedSpeed,
+    blurAmount: adjustedBlur,
+    sizeRange: adjustedSizeRange
+  });
+  
+  console.log(`🌟 情绪光圈映射: ${emotion} | 原始强度: ${(intensity * 100).toFixed(1)}% | 平滑强度: ${(smoothIntensity * 100).toFixed(1)}% | 光圈强度: ${adjustedIntensity.toFixed(2)}`);
+};
+
+// 手动测试情绪效果
+const testEmotionEffect = (emotion) => {
+  const testIntensity = 0.8; // 测试用强度
+  applyEmotionToAura(emotion, testIntensity);
+  console.log(`🧪 测试情绪效果: ${emotion}`);
+};
+
+// 获取情绪的主要类别（用于相似情绪的渐变处理）
+const getEmotionCategory = (emotion) => {
+  const emotionLower = emotion.toLowerCase();
+  
+  if (emotionLower.includes('happy') || emotionLower.includes('excited') || emotionLower.includes('pleased')) {
+    return 'positive';
+  } else if (emotionLower.includes('sad') || emotionLower.includes('depressed') || emotionLower.includes('miserable')) {
+    return 'negative';
+  } else if (emotionLower.includes('angry') || emotionLower.includes('fear') || emotionLower.includes('disgust')) {
+    return 'intense';
+  } else if (emotionLower.includes('relaxed') || emotionLower.includes('sleepy') || emotionLower.includes('tired')) {
+    return 'calm';
+  } else {
+    return 'neutral';
+  }
+};
+
+// 计算情绪间的混合效果（当快速切换情绪时）
+const blendEmotionEffects = (currentEmotion, previousEmotion, blendRatio = 0.3) => {
+  const currentConfig = emotionAuraMapping[currentEmotion] || emotionAuraMapping["Neutral (中性)"];
+  const previousConfig = emotionAuraMapping[previousEmotion] || emotionAuraMapping["Neutral (中性)"];
+  
+  // 混合颜色
+  const blendedColors = currentConfig.colors.map((currentColor, index) => {
+    const prevColor = previousConfig.colors[index] || previousConfig.colors[0];
+    
+    // 简单的颜色混合（这里只是示例，实际可以更复杂）
+    const currentRgba = currentColor.match(/rgba?\(([^)]+)\)/)[1].split(',');
+    const prevRgba = prevColor.match(/rgba?\(([^)]+)\)/)[1].split(',');
+    
+    const blendedR = Math.round(parseFloat(currentRgba[0]) * (1 - blendRatio) + parseFloat(prevRgba[0]) * blendRatio);
+    const blendedG = Math.round(parseFloat(currentRgba[1]) * (1 - blendRatio) + parseFloat(prevRgba[1]) * blendRatio);
+    const blendedB = Math.round(parseFloat(currentRgba[2]) * (1 - blendRatio) + parseFloat(prevRgba[2]) * blendRatio);
+    const blendedA = (parseFloat(currentRgba[3] || '1') * (1 - blendRatio) + parseFloat(prevRgba[3] || '1') * blendRatio).toFixed(3);
+    
+    return `rgba(${blendedR}, ${blendedG}, ${blendedB}, ${blendedA})`;
+  });
+  
+  return {
+    ...currentConfig,
+    colors: blendedColors,
+    baseIntensity: currentConfig.baseIntensity * (1 - blendRatio) + previousConfig.baseIntensity * blendRatio,
+    baseSpeed: currentConfig.baseSpeed * (1 - blendRatio) + previousConfig.baseSpeed * blendRatio
+  };
+};
 
 // 动态模糊光圈控制
 const dreamAuraConfig = ref({
@@ -612,6 +1100,14 @@ onMounted(() => {
   
   // 获取初始消息
   fetchInitialMessage();
+  
+  // 启动情绪监听
+  startEmotionListening();
+});
+
+// 在组件卸载时停止监听
+onUnmounted(() => {
+  stopEmotionListening();
 });
 
 // 添加监视器来调试状态变化
@@ -788,11 +1284,11 @@ watch(() => storyState.value.scene_count, (newVal, oldVal) => {
 
 .character-image {
   max-width: 2000px; /* 固定最大宽度，调大 */
-  max-height: 70vh; /* 最大高度为视口的70%，调大 */
+  max-height: 80vh; /* 最大高度为视口的70%，调大 */
   object-fit: contain;
-  opacity: 0.4; /* 适中的透明度，既能看到又不会干扰聊天 */
+  opacity: 0.9; /* 适中的透明度，既能看到又不会干扰聊天 */
   filter: blur(0.5px) brightness(0.8); /* 轻微模糊和变暗，营造背景感 */
-  transform: translateX(10px); /* 稍微向右偏移 */
+  transform: translate(10px, 30px); /* 稍微向右并向下偏移 */
   transition: all 1.2s ease-in-out; /* 添加平滑过渡动画 */
   border-radius: 10px; /* 添加圆角 */
 }
@@ -973,6 +1469,244 @@ watch(() => storyState.value.scene_count, (newVal, oldVal) => {
   background: linear-gradient(to right, #ffd700, #ffa500);
   border-radius: 2px;
   transition: width 0.3s ease-in-out;
+}
+
+/* EEG情绪状态显示 */
+.emotion-status {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  background: rgba(0, 0, 0, 0.8);
+  border-radius: 12px;
+  padding: 12px 16px;
+  backdrop-filter: blur(10px);
+  z-index: 15;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.emotion-indicator {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.emotion-indicator.active .emotion-icon {
+  animation: brainPulse 2s infinite ease-in-out;
+}
+
+@keyframes brainPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
+
+.emotion-icon {
+  font-size: 20px;
+  color: #64b5f6;
+}
+
+.emotion-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.emotion-state {
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.emotion-data {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.current-emotion {
+  color: #ffeb3b;
+  font-size: 11px;
+  font-weight: bold;
+  background: rgba(255, 235, 59, 0.2);
+  padding: 2px 6px;
+  border-radius: 8px;
+}
+
+.emotion-intensity {
+  color: #4caf50;
+  font-size: 11px;
+  font-weight: bold;
+}
+
+.emotion-history {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  margin-top: 2px;
+}
+
+.history-label {
+  color: #9e9e9e;
+  font-size: 10px;
+}
+
+.history-count {
+  color: #2196f3;
+  font-size: 10px;
+  font-weight: bold;
+  background: rgba(33, 150, 243, 0.2);
+  padding: 1px 4px;
+  border-radius: 6px;
+}
+
+.emotion-mapping {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  margin-top: 2px;
+}
+
+.mapping-label {
+  color: #9e9e9e;
+  font-size: 10px;
+}
+
+.mapping-status {
+  font-size: 10px;
+  font-weight: bold;
+  padding: 1px 4px;
+  border-radius: 6px;
+}
+
+.mapping-status.active {
+  color: #4caf50;
+  background: rgba(76, 175, 80, 0.2);
+  animation: mappingPulse 2s infinite ease-in-out;
+}
+
+@keyframes mappingPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+/* 情绪控制按钮 */
+.emotion-controls {
+  position: fixed;
+  top: 80px;
+  left: 20px;
+  z-index: 25;
+}
+
+.emotion-control-btn {
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  border: none;
+  border-radius: 20px;
+  padding: 10px 20px;
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: all 0.3s ease;
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.emotion-control-btn:hover {
+  background: rgba(0, 0, 0, 0.9);
+  transform: scale(1.05);
+}
+
+.emotion-control-btn.active {
+  background: rgba(255, 235, 59, 0.8);
+  color: #000;
+  border-color: rgba(255, 235, 59, 0.5);
+}
+
+/* 情绪测试面板 */
+.emotion-test-panel {
+  position: fixed;
+  top: 140px;
+  left: 20px;
+  width: 280px;
+  max-height: 60vh;
+  background: rgba(20, 20, 30, 0.95);
+  border-radius: 16px;
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.7);
+  z-index: 30;
+  overflow: hidden;
+  animation: panelSlideIn 0.3s ease-out;
+}
+
+.panel-header {
+  background: rgba(10, 10, 20, 0.8);
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.panel-header h3 {
+  color: #ffffff;
+  margin: 0;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.close-btn {
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+
+.close-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.emotion-test-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  padding: 12px 16px;
+}
+
+.emotion-test-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: white;
+  padding: 8px 4px;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: bold;
+  transition: all 0.3s ease;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.emotion-test-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: scale(1.05);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.emotion-test-btn:active {
+  transform: scale(0.95);
+  background: rgba(255, 235, 59, 0.3);
 }
 
 /* AI对话框样式 (透明设计) */
@@ -1354,6 +2088,46 @@ watch(() => storyState.value.scene_count, (newVal, oldVal) => {
   .theme-buttons,
   .preset-buttons {
     grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* 加载动画样式 */
+.loading-dots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.loading-dots .dot {
+  font-size: 24px;
+  animation: loadingDots 1.5s infinite ease-in-out;
+  opacity: 0;
+}
+
+.loading-dots .dot:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.loading-dots .dot:nth-child(2) {
+  animation-delay: 0.3s;
+}
+
+.loading-dots .dot:nth-child(3) {
+  animation-delay: 0.6s;
+}
+
+@keyframes loadingDots {
+  0%, 20% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  80%, 100% {
+    opacity: 0;
+    transform: scale(0.8);
   }
 }
 </style>

@@ -1,29 +1,130 @@
-# frontend
+# 前端界面
 
-This template should help get you started developing with Vue 3 in Vite.
+这是一个基于Vue.js的交互式故事前端界面。
 
-## Recommended IDE Setup
+## 主要功能
 
-[VSCode](https://code.visualstudio.com/) + [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
+- 交互式AI对话
+- 动态背景图片生成
+- 角色图片切换
+- 动态光圈效果
+- **EEG情绪光圈映射** (新功能)
 
-## Customize configuration
+## EEG情绪光圈映射功能
 
-See [Vite Configuration Reference](https://vite.dev/config/).
+### 功能描述
 
-## Project Setup
+本功能可以实时监听EEG脑波设备输出的情绪数据，并将情绪状态映射到动态光圈效果上，实现情绪可视化。
 
-```sh
-npm install
+### 支持的情绪类型
+
+系统支持16种不同的情绪状态，每种情绪都有独特的光圈效果：
+
+#### 积极情绪组
+- **Happy (开心)**: 金黄色光圈，中等强度，流畅动画
+- **Excited (激动)**: 橙红色光圈，最高强度，快速动画
+- **Surprised (惊喜)**: 紫蓝色光圈，高强度，极快动画
+- **Relaxed (放松)**: 绿色光圈，低强度，缓慢动画
+- **Pleased (平静)**: 蓝灰色光圈，极低强度，平稳动画
+
+#### 消极情绪组
+- **Sad (悲伤)**: 深蓝色光圈，低强度，缓慢动画
+- **Angry (愤怒)**: 红色光圈，最高强度，快速动画
+- **Fear (恐惧)**: 深紫色光圈，中高强度，不稳定动画
+- **Depressed (沮丧)**: 深灰蓝色光圈，极低强度，极慢动画
+- **Tired (疲倦)**: 棕色光圈，低强度，拖沓动画
+- **Sleepy (困倦)**: 紫灰色光圈，极低强度，极慢动画
+
+#### 其他情绪
+- **Neutral (中性)**: 默认紫色光圈，中等强度
+- **Bored (无聊)**: 灰色光圈，极低强度，单调动画
+- **Contempt (轻蔑)**: 深洋红色光圈，中强度
+- **Disgust (厌恶)**: 深黄绿色光圈，中强度
+- **Miserable (痛苦)**: 深红色光圈，高强度
+
+### 映射机制
+
+#### 光圈参数映射
+每种情绪都映射到以下光圈参数：
+- **颜色组合**: 5种相关色彩的RGBA值
+- **基础强度**: 光圈的不透明度 (0.2 - 1.0)
+- **动画速度**: 光圈动画的周期时间 (2 - 30秒)
+- **模糊程度**: 高斯模糊的像素值 (30 - 150px)
+- **尺寸范围**: 光圈的最小和最大尺寸
+
+#### 强度调节算法
+情绪强度(0-1)会动态调节光圈效果：
+- **强度调节**: `adjustedIntensity = baseIntensity × intensityFactor`
+- **速度调节**: `adjustedSpeed = baseSpeed ÷ max(0.3, intensityFactor)`
+- **模糊调节**: `adjustedBlur = baseBlur × (0.5 + intensityFactor × 0.5)`
+- **尺寸调节**: `sizeMultiplier = 0.7 + intensityFactor × 0.6`
+
+### 数据源
+
+#### EEG数据流
+系统通过HTTP轮询方式从音频服务获取情绪数据：
+- **轮询频率**: 每2秒一次
+- **数据源**: `http://localhost:8080/status`
+- **数据格式**: 包含emotion、intensity等字段
+
+#### 数据处理流程
+1. EEG设备 → 脑波处理服务 → 音频服务
+2. 前端轮询音频服务状态
+3. 解析情绪数据 (emotion + intensity)
+4. 映射到光圈配置
+5. 实时更新视觉效果
+
+### 使用方法
+
+#### 自动模式
+1. 确保EEG设备正常工作
+2. 启动脑波处理服务和音频服务
+3. 前端会自动开始监听情绪数据
+4. 光圈效果会根据实时情绪自动变化
+
+#### 测试模式
+1. 点击左上角的"情绪测试"按钮
+2. 在弹出的测试面板中点击任意情绪按钮
+3. 观察对应的光圈效果变化
+4. 用于调试和展示不同情绪的视觉效果
+
+### 技术架构
+
+```
+EEG设备 → Cortex → brain_processor.py → audio_service.py
+                                           ↓
+前端AIChat.vue ← HTTP轮询 ← 情绪数据API
+    ↓
+光圈效果映射 → CSS动画更新 → 视觉呈现
 ```
 
-### Compile and Hot-Reload for Development
+### 开发说明
 
-```sh
+#### 核心组件
+- `emotionAuraMapping`: 情绪到光圈效果的映射配置
+- `startEmotionListening()`: 启动情绪数据监听
+- `applyEmotionToAura()`: 应用情绪到光圈效果
+- `testEmotionEffect()`: 测试情绪效果
+
+#### 扩展支持
+可以通过修改`emotionAuraMapping`对象来：
+- 添加新的情绪类型
+- 调整现有情绪的光圈参数
+- 创建自定义的情绪视觉效果
+
+### 状态监控
+
+界面左上角会显示：
+- EEG连接状态 (监听中/已停止)
+- 当前检测到的情绪
+- 情绪强度百分比
+- 带有脑波动画的状态指示器
+
+## 安装和运行
+
+```bash
+npm install
 npm run dev
 ```
 
-### Compile and Minify for Production
-
-```sh
-npm run build
-```
+确保后端EEG服务在localhost:8080端口运行。
