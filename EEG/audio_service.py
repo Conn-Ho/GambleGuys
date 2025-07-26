@@ -274,9 +274,6 @@ class EmotionUpdate(BaseModel):
     arousal: float
     timestamp: float
 
-class MusicGenerate(BaseModel):
-    emotion: float
-
 # ========================================================================================
 # 音乐生成与控制模块 (Music Generation and Control Module)
 # ========================================================================================
@@ -748,65 +745,6 @@ async def restart_audio():
     except Exception as e:
         logger.error(f"重启音频服务失败: {e}")
         raise HTTPException(status_code=500, detail=f"重启失败: {str(e)}")
-
-@app.post("/generate")
-async def generate_music(music_data: MusicGenerate):
-    """生成音乐端点 - 兼容主系统调用"""
-    global audio_generator
-    
-    if not audio_generator:
-        raise HTTPException(status_code=503, detail="音频生成器未初始化")
-    
-    if not audio_generator.is_playing:
-        # 如果音频生成器没有运行，尝试启动它
-        try:
-            asyncio.create_task(audio_generator.start_audio_generation())
-            # 等待一小段时间让服务启动
-            await asyncio.sleep(2)
-        except Exception as e:
-            logger.error(f"启动音频生成器失败: {e}")
-            raise HTTPException(status_code=503, detail="音频生成器启动失败")
-    
-    try:
-        # 将情绪值转换为情绪标签和强度
-        emotion_value = music_data.emotion
-        
-        # 根据情绪值映射到具体情绪
-        if emotion_value < 0.2:
-            emotion_label = "Sad (悲伤)"
-            intensity = 1.0 - emotion_value * 5  # 0-0.2 -> 1.0-0.0
-        elif emotion_value < 0.4:
-            emotion_label = "Depressed (沮丧)"
-            intensity = (0.4 - emotion_value) * 5  # 0.2-0.4 -> 1.0-0.0
-        elif emotion_value < 0.6:
-            emotion_label = "Neutral (中性)"
-            intensity = abs(emotion_value - 0.5) * 2  # 0.4-0.6 -> intensity based on distance from 0.5
-        elif emotion_value < 0.8:
-            emotion_label = "Pleased (平静)"
-            intensity = (emotion_value - 0.4) * 2.5  # 0.6-0.8 -> 0.5-1.0
-        else:
-            emotion_label = "Happy (开心)"
-            intensity = (emotion_value - 0.6) * 2.5  # 0.8-1.0 -> 0.5-1.0
-        
-        # 更新情绪状态
-        await audio_generator.update_emotion(emotion_label, min(1.0, max(0.1, intensity)))
-        
-        logger.info(f"音乐生成请求: emotion_value={emotion_value:.2f}, mapped to {emotion_label} (强度: {intensity:.2f})")
-        
-        # 返回成功响应（音乐是实时流，所以返回状态而不是URL）
-        return JSONResponse(content={
-            "status": "success",
-            "message": "音乐情绪已更新",
-            "emotion_value": emotion_value,
-            "mapped_emotion": emotion_label,
-            "intensity": intensity,
-            "music_url": None,  # 实时流音乐，没有具体URL
-            "timestamp": time.time()
-        })
-        
-    except Exception as e:
-        logger.error(f"生成音乐失败: {e}")
-        raise HTTPException(status_code=500, detail=f"生成失败: {str(e)}")
 
 @app.on_event("shutdown")
 async def shutdown_event():

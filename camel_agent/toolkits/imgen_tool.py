@@ -12,20 +12,21 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from libs.imgen import generate_image
 
 from camel.toolkits.base import BaseToolkit
-from camel.toolkits import FunctionTool
+from camel.toolkits.openai_function import OpenAIFunction
 
 class ImageGenerationToolkit(BaseToolkit):
     """图像生成工具包，使用豆包API提供文本到图像的生成功能。"""
     
     def __init__(self, api_key: Optional[str] = None):
-        self.api_key = api_key or os.getenv("ARK_API_KEY")
+        # 使用统一的API Key
+        self.api_key = api_key or os.getenv("ARK_API_KEY") or "9184e6fa-3267-4188-bf11-094bc7536823"
         
         self.llm_model = self._init_azure_openai()
     
     def _init_azure_openai(self) -> Optional[AzureOpenAIModel]:
         """初始化Azure OpenAI模型"""
         try:
-            if not os.getenv("AZURE_OPENAI_BASE_URL") or not os.getenv("AZURE_OPENAI_API_KEY"):
+            if not os.getenv("AZURE_OPENAI_ENDPOINT") or not os.getenv("AZURE_OPENAI_API_KEY"):
                 return None
                 
             model_config = {
@@ -45,6 +46,7 @@ class ImageGenerationToolkit(BaseToolkit):
     def _optimize_prompt(self, story_content: str) -> str:
         """优化图片提示词"""
         if not self.llm_model:
+  
             return f"pixel art dreamcore scene, {story_content[:100]}, nostalgic atmosphere, soft colors"
         
         try:
@@ -99,9 +101,12 @@ class ImageGenerationToolkit(BaseToolkit):
         except Exception as e:
             return f"生成过程出错: {str(e)}"
     
-    def get_tools(self) -> List[FunctionTool]:
+    def get_tools(self) -> List[OpenAIFunction]:
         """获取工具列表"""
-        image_tool = FunctionTool(self.generate_image)
+        image_tool = OpenAIFunction(self.generate_image)
+        image_tool.set_function_name("generate_image")
+        image_tool.set_function_description("根据故事内容生成梦核+像素风格图像")
+        image_tool.set_paramter_description("story_content", "故事内容")
         
         return [image_tool]
 

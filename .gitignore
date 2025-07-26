@@ -1,31 +1,15 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-venv/
-ENV/
-env/
+data
+*.csv
 .env
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
 
-# IDE
-.idea/
-.vscode/
-*.swp
-*.swo
 
-# OS
-.DS_Store
-Thumbs.db
+.env       # 环境变量文件（含敏感信息）
+*.log      # 日志文件
+/dist/     # 打包生成的目录
 
-# Node
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Distribution / packaging
-dist/
-build/
-*.egg-info/
+camel/Lib/site-packages/
+camel/Scripts/

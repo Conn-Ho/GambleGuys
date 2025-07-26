@@ -20,7 +20,8 @@ CAMEL-AI 自定义工具包模块
 """
 
 from .imgen_tool import ImageGenerationToolkit
-from camel.toolkits import BaseToolkit, FunctionTool
+from camel.toolkits import BaseToolkit
+from camel.toolkits.openai_function import OpenAIFunction
 from camel.messages import BaseMessage
 from typing import List, Dict, Any
 import json
@@ -32,25 +33,25 @@ class MemoryToolkit(BaseToolkit):
         self.memory = memory_instance
         super().__init__()
     
-    def get_tools(self) -> List[FunctionTool]:
+    def get_tools(self) -> List[OpenAIFunction]:
         """获取记忆相关工具"""
         # 创建get_memory工具
-        get_memory_tool = FunctionTool(self._get_memory)
+        get_memory_tool = OpenAIFunction(self._get_memory)
+        get_memory_tool.set_function_name("get_memory")
+        get_memory_tool.set_function_description("获取历史对话记忆，用于确保故事连续性")
+        get_memory_tool.set_paramter_description("query", "查询关键词，用于检索相关记忆")
         
         # 创建save_memory工具
-        save_memory_tool = FunctionTool(self._save_memory)
+        save_memory_tool = OpenAIFunction(self._save_memory)
+        save_memory_tool.set_function_name("save_memory")
+        save_memory_tool.set_function_description("保存当前对话到记忆中")
+        save_memory_tool.set_paramter_description("content", "要保存的内容")
+        save_memory_tool.set_paramter_description("type", "内容类型：story, character, setting, preference")
         
         return [get_memory_tool, save_memory_tool]
     
     def _get_memory(self, query: str) -> str:
-        """获取历史记忆
-        
-        Args:
-            query (str): 查询关键词，用于检索相关记忆
-            
-        Returns:
-            str: 历史记忆内容
-        """
+        """获取历史记忆"""
         try:
             if hasattr(self.memory, 'chat_messages') and self.memory.chat_messages:
                 # 获取最近的对话历史
@@ -69,15 +70,7 @@ class MemoryToolkit(BaseToolkit):
             return f"获取记忆时出错: {str(e)}"
     
     def _save_memory(self, content: str, type: str) -> str:
-        """保存记忆
-        
-        Args:
-            content (str): 要保存的内容
-            type (str): 内容类型：story, character, setting, preference
-            
-        Returns:
-            str: 保存结果
-        """
+        """保存记忆"""
         try:
             # 这里可以扩展为更复杂的记忆存储逻辑
             return f"已保存 {type} 类型的记忆: {content[:100]}..."
@@ -86,5 +79,4 @@ class MemoryToolkit(BaseToolkit):
 
 __all__ = [
     'ImageGenerationToolkit',
-    'MemoryToolkit',
 ] 

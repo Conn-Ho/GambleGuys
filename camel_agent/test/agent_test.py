@@ -6,7 +6,7 @@ import os
 
 # 设置Azure OpenAI环境变量
 os.environ["AZURE_OPENAI_API_KEY"] = "ES3vLOAy8MUTMui8udIAk2vZO1Fo7qCBHKlaAvcprOXicYTkjzwbJQQJ99BDACHYHv6XJ3w3AAAAACOG4FT8"
-os.environ["AZURE_OPENAI_BASE_URL"] = "https://ai-philxia4932ai122623990161.openai.azure.com/"
+os.environ["AZURE_OPENAI_ENDPOINT"] = "https://ai-philxia4932ai122623990161.openai.azure.com/"
 os.environ["AZURE_API_VERSION"] = "2024-02-15-preview"
 os.environ["AZURE_DEPLOYMENT_NAME"] = "gpt-4.1"
 
