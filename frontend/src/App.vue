@@ -1,20 +1,26 @@
 <script setup>
-import { ref, onMounted } from 'vue'
-import Loading from './components/Loading.vue'
+import { ref } from 'vue'
+import IntroAnimation from './components/IntroAnimation.vue'
+import MemoryGuide from './components/MemoryGuide.vue'
 import TheWelcome from './components/TheWelcome.vue'
 
-const loading = ref(true)
+const currentStep = ref('intro') // 'intro', 'memory', 'game'
 
-onMounted(() => {
-  // 模拟加载2秒
-  setTimeout(() => {
-    loading.value = false
-  }, 2000)
-})
+// 处理intro动画完成事件
+const handleIntroCompleted = () => {
+  currentStep.value = 'memory'
+}
+
+// 处理记忆引导完成事件
+const handleMemoryGuideCompleted = (memorySettings) => {
+  console.log('用户记忆设置:', memorySettings)
+  currentStep.value = 'game'
+}
 </script>
 
 <template>
-  <Loading v-if="loading" />
+  <IntroAnimation v-if="currentStep === 'intro'" @completed="handleIntroCompleted" />
+  <MemoryGuide v-else-if="currentStep === 'memory'" @completed="handleMemoryGuideCompleted" />
   <main v-else>
     <TheWelcome />
   </main>

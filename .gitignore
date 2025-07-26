@@ -13,3 +13,4 @@ __pycache__/
 
 camel/Lib/site-packages/
 camel/Scripts/
+camel_agent/venv/

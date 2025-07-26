@@ -55,7 +55,7 @@ const handleBackgroundUpdate = (imageUrl) => {
   bottom: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.8); /* 0.5为透明度，可调整 */
+  background: rgba(0, 0, 0, 0.3); /* 0.5为透明度，可调整 */
   pointer-events: none; /* 不影响鼠标事件 */
 }
 .ai-chat {

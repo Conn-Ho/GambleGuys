@@ -19,12 +19,13 @@
       </div>
     </div>
 
-    <!-- AI回复对话框 (只显示最新的一个，透明样式) -->
-    <div v-if="latestAiMessage" class="ai-dialog-wrapper">
-      <div class="ai-dialog">
-        <div class="ai-dialog-header">
-          <span class="ai-dialog-title">???</span>
-        </div>
+    <!-- AI回复对话框 (只显示最新的一个，透明样式，位置向下移动) -->
+    <div
+      v-if="latestAiMessage"
+      class="ai-dialog-wrapper"
+      style="position: absolute; bottom: 60px; left: 0; right: 0; display: flex; justify-content: center; pointer-events: none; z-index: 10;"
+    >
+      <div class="ai-dialog" style="margin-top: 120px; pointer-events: auto;">
         <div class="ai-dialog-content">
           <p class="ai-response">{{ latestAiMessage.text }}</p>
         </div>
@@ -43,79 +44,14 @@
       </div>
     </div>
 
-    <!-- 用户输入手机界面 (更复古风格) -->
-    <div class="phone-container">
-      <div class="phone-frame">
-        <div class="phone-screen">
-          <div class="phone-header">
-            <div class="phone-status-bar">
-              <span class="carrier">•••○○ AT&T</span>
-              <span class="time">9:42 AM</span>
-              <span class="battery">🔋</span>
-            </div>
-            <div class="app-header">
-              <span class="back-arrow">←</span>
-              <span class="app-title">故事</span>
-              <span class="menu-dots">⋯</span>
-            </div>
-          </div>
-
-          <div class="phone-content">
-            <div class="colorful-background">
-              <!-- 更深沉的彩色方块背景 -->
-              <div class="color-grid">
-                <div
-                  v-for="n in 42"
-                  :key="n"
-                  class="color-block"
-                  :style="getVintageColor()"
-                ></div>
-              </div>
-            </div>
-
-            <div class="input-popup">
-              <div class="input-header">
-                <span class="input-count"
-                  >{{ messages.filter((m) => m.role === "user").length + 1 }} of
-                  27</span
-                >
-                <h3>From A Friend</h3>
-                <p>A Message For You</p>
-                <div class="timestamp">Today, 10:15 AM</div>
-              </div>
-
-              <div class="input-area">
-                <textarea
-                  v-model="input"
-                  @keyup.enter="send"
-                  placeholder="请输入你的故事想法..."
-                  :disabled="loading || !storyState.story_active"
-                  rows="3"
-                ></textarea>
-              </div>
-
-              <div class="input-actions">
-                <button
-                  @click="send"
-                  :disabled="
-                    loading || !input.trim() || !storyState.story_active
-                  "
-                  class="send-btn"
-                >
-                  {{
-                    !storyState.story_active
-                      ? "故事已结束"
-                      : loading
-                      ? "发送中..."
-                      : "发送"
-                  }}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <!-- 手机消息组件 -->
+    <PhoneMessage
+      :visible="showPhoneMessage"
+      :loading="loading"
+      :story-active="storyState.story_active"
+      :message-count="messages.filter((m) => m.role === 'user').length + 1"
+      @send="handleSend"
+    />
   </div>
 </template>
 
@@ -195,7 +131,8 @@ const getVintageColor = () => {
   };
 };
 
-async function send() {
+// 处理发送消息
+async function handleDirectSend() {
   if (!input.value.trim() || loading.value) return;
 
   const userMessage = input.value;
@@ -204,7 +141,7 @@ async function send() {
   loading.value = true;
 
   try {
-    const response = await fetch("http://localhost:5000/api/chat", {
+    const response = await fetch("http://localhost:5001/api/chat", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -382,173 +319,6 @@ onMounted(() => {
   font-style: italic;
 }
 
-/* 复古手机界面样式 */
-.phone-container {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-}
-
-.phone-frame {
-  width: 280px;
-  height: 520px;
-  background: linear-gradient(145deg, #1a1a1a, #0d0d0d); /* 更深的渐变 */
-  border-radius: 20px; /* 更圆润的边角 */
-  padding: 6px;
-  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.9),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1); /* 添加内阴影 */
-  border: 2px solid #333; /* 添加边框 */
-}
-
-.phone-screen {
-  width: 100%;
-  height: 100%;
-  background: #000;
-  border-radius: 15px;
-  overflow: hidden;
-  position: relative;
-  border: 1px solid #222;
-}
-
-.phone-header {
-  background: rgba(0, 0, 0, 0.95);
-  color: white;
-  padding: 6px 10px;
-  font-family: "SF Pro Text", -apple-system, sans-serif;
-}
-
-.phone-status-bar {
-  display: flex;
-  justify-content: space-between;
-  font-size: 11px;
-  margin-bottom: 6px;
-  font-weight: 600;
-}
-
-.app-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 13px;
-  font-weight: 500;
-}
-
-.phone-content {
-  height: calc(100% - 55px);
-  position: relative;
-}
-
-.colorful-background {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-}
-
-.color-grid {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  grid-template-rows: repeat(7, 1fr);
-  width: 100%;
-  height: 100%;
-  gap: 1px;
-}
-
-.color-block {
-  border: 0.5px solid rgba(0, 0, 0, 0.2);
-  transition: all 0.3s ease;
-}
-
-.input-popup {
-  position: absolute;
-  bottom: 25px;
-  left: 15px;
-  right: 15px;
-  background: rgba(255, 255, 255, 0.97);
-  border-radius: 10px;
-  padding: 12px;
-  backdrop-filter: blur(20px);
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
-  border: 0.5px solid rgba(0, 0, 0, 0.1);
-}
-
-.input-header {
-  text-align: center;
-  margin-bottom: 10px;
-}
-
-.input-count {
-  font-size: 11px;
-  color: #666;
-  font-weight: 500;
-}
-
-.input-header h3 {
-  margin: 2px 0 1px 0;
-  font-size: 15px;
-  color: #333;
-  font-weight: 600;
-}
-
-.input-header p {
-  margin: 0 0 4px 0;
-  font-size: 11px;
-  color: #666;
-}
-
-.timestamp {
-  font-size: 10px;
-  color: #999;
-  margin-top: 4px;
-}
-
-.input-area {
-  margin-bottom: 10px;
-}
-
-.input-area textarea {
-  width: 100%;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  padding: 6px;
-  font-size: 13px;
-  resize: none;
-  outline: none;
-  font-family: inherit;
-  background: rgba(255, 255, 255, 0.9);
-}
-
-.input-area textarea:focus {
-  border-color: #007aff;
-  box-shadow: 0 0 0 2px rgba(0, 122, 255, 0.2);
-}
-
-.input-actions {
-  text-align: center;
-}
-
-.send-btn {
-  background: #007aff;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  padding: 8px 16px;
-  font-size: 13px;
-  cursor: pointer;
-  transition: background 0.2s;
-  font-weight: 500;
-}
-
-.send-btn:hover:not(:disabled) {
-  background: #0056cc;
-}
-
-.send-btn:disabled {
-  background: #ccc;
-  cursor: not-allowed;
-}
-
 /* 响应式设计 */
 @media (max-width: 768px) {
   .ai-dialog {
@@ -556,15 +326,24 @@ onMounted(() => {
     max-width: 90vw;
   }
 
-  .phone-container {
-    position: fixed;
-    bottom: 10px;
-    right: 10px;
+  .simple-input-container {
+    width: 95%;
+    bottom: 15px;
   }
 
-  .phone-frame {
-    width: 240px;
-    height: 450px;
+  .input-wrapper {
+    padding: 15px;
+  }
+
+  .story-input {
+    font-size: 14px;
+    padding: 12px;
+  }
+
+  .send-button {
+    font-size: 14px;
+    padding: 10px 20px;
+    min-width: 100px;
   }
 }
 </style>
