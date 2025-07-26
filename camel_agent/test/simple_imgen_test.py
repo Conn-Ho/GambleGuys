@@ -8,6 +8,9 @@
 import sys
 import os
 
+# 设置环境变量
+os.environ["ARK_API_KEY"] = "9184e6fa-3267-4188-bf11-094bc7536823"
+
 # 添加项目路径
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
