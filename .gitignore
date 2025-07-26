@@ -1,10 +1,8 @@
-data
-*.csv
-.env
-__pycache__/
+**/venv/
+**/__pycache__/
 *.pyc
-*.pyo
-*.pyd
+.DS_Store
+.env
 
 
 .env       # 环境变量文件（含敏感信息）
