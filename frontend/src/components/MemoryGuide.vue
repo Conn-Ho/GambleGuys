@@ -17,7 +17,7 @@
             
             <!-- 加载状态显示在输出框位置 -->
             <div v-if="loading && !aiResponse" class="ai-output-box loading-box">
-              <div class="loading-text">AI正在思考中...</div>
+            
             </div>
             
             <div class="input-container">
