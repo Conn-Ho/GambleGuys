@@ -75,13 +75,76 @@ def get_memory_context(memory):
             return context + "请基于以上历史继续故事\n"
     return "\n新的对话开始\n"
 
-def generate_image_prompt(story_content):
-    base_prompt = "pixel art dreamcore scene"
-    words = story_content.lower().split()
-    keywords = [word for word in words if len(word) > 3 and word.isalpha()][:5]
-    if keywords:
-        return f"{base_prompt}, {', '.join(keywords)}, nostalgic atmosphere, dreamy blue-purple tones, low saturation, 8-bit style"
-    return f"{base_prompt}, nostalgic atmosphere, dreamy blue-purple tones, low saturation, 8-bit style"
+def generate_image_prompt(story_content, model=None):
+    """使用AzureOpenAI根据故事内容生成图片提示词"""
+    if not model:
+        # 如果没有传入模型，使用全局模型
+        if 'model' in globals() and globals()['model'] is not None:
+            used_model = globals()['model']
+        else:
+            used_model = init_model()
+    else:
+        used_model = model
+    
+    if not used_model:
+        # 如果模型不可用，返回基础提示词
+        print("⚠️ AzureOpenAI模型不可用，使用基础提示词")
+        return f"pixel art dreamcore scene, {story_content[:50]}, nostalgic atmosphere, dreamy blue-purple tones, low saturation, 8-bit style"
+    
+    try:
+        # 构建系统提示词
+        system_prompt = """你是一个专业的图像提示词生成专家。请根据给定的故事内容，生成一个适合的英文图像提示词。
+
+要求：
+1. 风格：像素风+梦核风格 (pixel art + dreamcore)
+2. 色调：蓝紫调，低饱和度
+3. 氛围：怀旧、梦幻、温馨
+4. 长度：不超过80个英文单词
+5. 包含具体的场景、物体、氛围描述
+6. 不要包含人物面部特征
+
+示例格式：pixel art dreamcore scene, [具体场景描述], nostalgic atmosphere, soft blue-purple tones, low saturation, 8-bit style
+
+请只返回提示词，不要添加其他解释。"""
+
+        user_prompt = f"请为以下故事内容生成图像提示词：\n\n{story_content}"
+        
+        # 创建临时的ChatAgent来生成提示词
+        sys_msg = BaseMessage.make_assistant_message(
+            role_name='Image Prompt Generator',
+            content=system_prompt
+        )
+        
+        temp_agent = ChatAgent(
+            system_message=sys_msg,
+            model=used_model
+        )
+        
+        user_message = BaseMessage.make_user_message(
+            role_name='User',
+            content=user_prompt
+        )
+        
+        # 调用临时agent生成提示词
+        response = temp_agent.step(user_message)
+        
+        if response and response.msgs and len(response.msgs) > 0:
+            generated_prompt = response.msgs[0].content.strip()
+            print(f"🎨 AI生成的提示词: {generated_prompt}")
+            return generated_prompt
+        else:
+            print("⚠️ AzureOpenAI返回空响应，使用基础提示词")
+            return f"pixel art dreamcore scene, {story_content[:50]}, nostalgic atmosphere, dreamy blue-purple tones, low saturation, 8-bit style"
+            
+    except Exception as e:
+        print(f"❌ 生成图片提示词时出错: {str(e)}")
+        # 出错时返回基础提示词
+        base_prompt = "pixel art dreamcore scene"
+        words = story_content.lower().split()
+        keywords = [word for word in words if len(word) > 3 and word.isalpha()][:3]
+        if keywords:
+            return f"{base_prompt}, {', '.join(keywords)}, nostalgic atmosphere, dreamy blue-purple tones, low saturation, 8-bit style"
+        return f"{base_prompt}, nostalgic atmosphere, dreamy blue-purple tones, low saturation, 8-bit style"
 
 def extract_story_content(ai_response):
     story_pattern = re.search(r"---\s*(.*?)\s*---", ai_response, re.DOTALL)
@@ -193,19 +256,22 @@ def chat():
         # 提取故事内容
         story_content = extract_story_content(full_reply)
         
-        # 检查是否应该生成图片（简化版本，只在特定条件下生成）
+        # 初始化图片URL变量
         image_url = None
-        should_generate_image = (
-            story_state["scenes_count"] % 3 == 0 or  # 每3个场景生成一次图片
-            "看到" in user_input or "风景" in user_input or  # 用户提到视觉内容
-            len(story_content) > 80  # 故事内容较长时
-        )
+        
+        # 每次对话都生成图片
+        should_generate_image = True  # 简化：每次都生成图片
         
         if should_generate_image and story_content:
-            prompt = generate_image_prompt(story_content)
+            prompt = generate_image_prompt(story_content, model)  # 传入模型参数
+            print(f"🎨 准备生成图片，提示词: {prompt}")
             result = generate_image(prompt=prompt, api_key=DOUBAO_API_KEY)
+            print(f"🎨 图片生成结果: {result}")
             if result.get("success"):
                 image_url = result["image_url"]
+                print(f"✅ 图片生成成功: {image_url}")
+            else:
+                print(f"❌ 图片生成失败: {result.get('error', 'Unknown error')}")
         
         # 检查是否达到结局条件
         if story_state["scenes_count"] >= 10 and story_state["scenes_count"] % 10 == 0:
@@ -235,6 +301,26 @@ def test_image():
     prompt = data.get('prompt', 'pixel art dreamcore scene, peaceful landscape')
     result = generate_image(prompt=prompt, api_key=DOUBAO_API_KEY)
     return jsonify({'result': result, 'status': 'success'})
+
+@app.route('/api/debug-image', methods=['POST'])
+def debug_image():
+    """调试图片生成功能"""
+    data = request.json
+    prompt = data.get('prompt', 'pixel art dreamcore scene')
+    
+    print(f"调试 - 使用API Key: {DOUBAO_API_KEY[:10]}...")
+    print(f"调试 - 生成提示词: {prompt}")
+    
+    result = generate_image(prompt=prompt, api_key=DOUBAO_API_KEY)
+    
+    print(f"调试 - 生成结果: {result}")
+    
+    return jsonify({
+        'prompt': prompt,
+        'api_key_preview': DOUBAO_API_KEY[:10] + "...",
+        'result': result,
+        'status': 'debug'
+    })
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)

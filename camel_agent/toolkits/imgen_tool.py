@@ -18,7 +18,8 @@ class ImageGenerationToolkit(BaseToolkit):
     """图像生成工具包，使用豆包API提供文本到图像的生成功能。"""
     
     def __init__(self, api_key: Optional[str] = None):
-        self.api_key = api_key or os.getenv("ARK_API_KEY")
+        # 使用统一的API Key
+        self.api_key = api_key or os.getenv("ARK_API_KEY") or "9184e6fa-3267-4188-bf11-094bc7536823"
         
         self.llm_model = self._init_azure_openai()
     
