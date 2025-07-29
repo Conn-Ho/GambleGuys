@@ -16,7 +16,7 @@ from camel_agent.memory.memory import memory
 from camel_agent.prompts.leading_prompt import leading_prompt  # 使用故事引导提示词
 from camel_agent.libs.imgen import generate_image
 
-os.environ["AZURE_OPENAI_API_KEY"] = "ES3vLOAy8MUTMui8udIAk2vZO1Fo7qCBHKlaAvcprOXicYTkjzwbJQQJ99BDACHYHv6XJ3w3AAAAACOG4FT8"
+os.environ["AZURE_OPENAI_API_KEY"] = "ES3vLOAy8MUTMui8udIAk2vZO1Fo7qCBHKlaAvcprOXicYTkjzwbJQQJ99BDACHYHv6XJ3w3AAAAACOG4FT"
 os.environ["AZURE_OPENAI_ENDPOINT"] = "https://ai-philxia4932ai122623990161.openai.azure.com/"
 os.environ["AZURE_API_VERSION"] = "2024-02-15-preview"
 os.environ["AZURE_DEPLOYMENT_NAME"] = "gpt-4.1"  # 修改为正确的部署名称
