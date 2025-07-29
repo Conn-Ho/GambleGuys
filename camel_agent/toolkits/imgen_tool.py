@@ -19,7 +19,7 @@ class ImageGenerationToolkit(BaseToolkit):
     
     def __init__(self, api_key: Optional[str] = None):
         # 使用统一的API Key
-        self.api_key = api_key or os.getenv("ARK_API_KEY") or "9184e6fa-3267-4188-bf11-094bc7536823"
+        self.api_key = api_key or os.getenv("ARK_API_KEY") or "9184e6fa-3267-4188-bf11-094bc753682"
         
         self.llm_model = self._init_azure_openai()
     
